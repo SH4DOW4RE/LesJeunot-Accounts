@@ -1,0 +1,348 @@
+# LesJeunot-Accounts
+
+A Microservice School Project.
+
+# Prerequisites
+
+- [Python](https://www.python.org/downloads) >= 3.11
+
+# Installation
+
+### 1. Install Python for your Operating System
+
+Follow the instructions on the Python website or online.
+
+### 2. Clone the repo
+
+```bash
+# HTTPS
+git clone https://github.com/SH4DOW4RE/LesJeunot-Accounts.git
+# SSH
+git clone git@github.com:SH4DOW4RE/LesJeunot-Accounts.git
+```
+
+### 3. Create a Virtual Environment and activate it
+
+```bash
+python3 -m venv .venv
+```
+
+```bash
+# Windows
+.venv\Scripts\activate.bat
+# Linux
+.venv/Scripts/activate
+```
+
+### 4. Install dependancies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 5. Create a `.env` file
+
+```
+# Host IP and Port to listen on
+HOST = "0.0.0.0"
+PORT = 8080
+
+# Encryption key for the users' data
+KEY = "<32 bytes Encoded in base64>"
+```
+
+### 6. Start the service in development mode
+
+> [!NOTE]
+> When first starting the project, it will create it's SQLite database on it's own.
+
+```bash
+python3 main.py
+```
+
+*Production mode coming soon™*
+
+### 7. Profit ?
+
+# Routes
+
+Example baseURL: `http://localhost:8080`
+
+> [!NOTE]
+> A newly created JWT access token (`/login`) is considered fresh.<br>
+> A JWT refresh token (`/refresh`) is no longer considered fresh.
+
+> [!NOTE]
+> Required field: `<data>`<br>
+> Optional field: `[data]`
+
+> [!NOTE]
+> Keep in mind that any errors not shown as an example are unexpected errors.<br>
+> Usually shown as a 500 error.
+
+### Index
+
+`GET /` Ping the server to see if it's online.
+<br>
+Example 200 response:
+```json
+{
+    "status": 200
+}    
+```
+---
+`GET /versions` Lists available versions.
+<br>
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "versions": [
+            "v1"
+        ]
+    }
+}    
+```
+---
+### Users
+
+`POST /<version>/user` Creates a user (register a user).
+<br>
+Body:
+```json
+{
+    "lastname": "<lastname>",
+    "firstname": "<firstname>",
+    "age": "<age>",
+    "email": "<email>",
+    "password": "<password>"
+}
+```
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "message": "User successfully created."
+    }
+}
+```
+Example 400 response:
+```json
+{
+    "status": 400,
+    "error": "Bad Request",
+    "message": "Missing value(s): [<list of missing values>]"
+}
+```
+---
+`POST /<version>/user/login` Log in a User.
+<br>
+Body:
+```json
+{
+    "email": "<email>",
+    "password": "<password>",
+}
+```
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "message": "User successfully logged in.",
+        "token": {
+            "access": "<JWT access token (valid for 6 hours)>",
+            "refresh": "<JWT refresh token (valid for 7 days)>",
+        }
+    }
+}    
+```
+Example 400 response:
+```json
+{
+    "status": 400,
+    "error": "Bad Request",
+    "message": "Missing value(s): [<list of missing values>]"
+}
+```
+Example 401 response:
+```json
+{
+    "status": 401,
+    "error": "Unauthorized",
+    "message": "Email or Password invalid."
+}
+```
+---
+`GET /<version>/user/refresh` Gives a new Access Token from a Refresh Token.
+<br>
+**Authorization header required** `Authorization: Bearer <refresh token>`
+<br>
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "token": {
+            "access": "<JWT access token (valid for 6 hours)>"
+        }
+    }
+}    
+```
+---
+`GET /<version>/user/me` Get the logged in User's details.
+<br>
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "lastname": "<lastname>",
+        "firstname": "<firstname>",
+        "age": "<age>",
+        "email": "<email>",
+        "role": ""
+    }
+}    
+```
+---
+`PUT /<version>/user/modify` Modify all of the User's details.
+<br>
+Body:
+```json
+{
+    "lastname": "<lastname>",
+    "firstname": "<firstname>",
+    "age": "<age>",
+    "email": "<email>",
+    "password": "<password>"
+}
+```
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "message": "User successfully modified."
+    }
+}
+```
+Example 400 response:
+```json
+{
+    "status": 400,
+    "error": "Bad Request",
+    "message": "Use PATCH for partial modification of user data."
+}
+```
+---
+`PATCH /<version>/user/modify` Modify some values of the User's details.
+<br>
+*All fields are optional, but at least one is required.*
+<br>
+Body:
+```json
+{
+    "lastname": "[lastname]",
+    "firstname": "[firstname]",
+    "age": "[age]",
+    "email": "[email]",
+    "password": "[password]"
+}
+```
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "message": "User successfully modified."
+    }
+}
+```
+Example 400 response:
+```json
+{
+    "status": 400,
+    "error": "Bad Request",
+    "message": "At least one field is required."
+}
+```
+---
+`GET /<version>/user/delete` Delete the current User (logged in user).
+<br>
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "message": "User successfully deleted."
+    }
+}
+```
+---
+### Tickets
+
+`GET /<version>/ticket` Get all the User's tickets.
+<br>
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "showings": [<list of string of the showing values>]
+    }
+}
+```
+---
+`GET /<version>/ticket/<ticket uuid>` Get a User's specific ticket.
+<br>
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "showings": "<showing value>"
+    }
+}
+```
+---
+`POST /<version>/ticket` Creates a ticket.
+<br>
+Body:
+```json
+{
+    "showing": "<showing value>"
+}
+```
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "message": "Ticket successfully created.",
+        "uuid": "<ticket's uuid>"
+    }
+}
+```
+Example 400 response:
+```json
+{
+    "status": 400,
+    "error": "Bad Request",
+    "message": "Missing value: showing"
+}
+```
+---
+`GET /<version>/ticket/delete/[id]` Delete a specified ticket, or all tickets if not speficied.
+<br>
+Example 200 response:
+```json
+{
+    "status": 200,
+    "data": {
+        "message": "Ticket successfully deleted."
+    }
+}
+```
