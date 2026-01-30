@@ -10,6 +10,7 @@ from sqlalchemy import delete as sql_delete, select
 from database import get_session
 from models import Ticket, User
 from modules.RESTful_Builder import Builder
+from modules.Tariffs import get_tariff
 
 
 def send(code: int, response: dict | None = None):
@@ -47,6 +48,18 @@ def _deserialize_showing(showing: str | dict):
         return showing
 
 
+def _ticket_payload(ticket: Ticket, include_owner: bool = False):
+    payload = {
+        "uuid": ticket.uuid,
+        "showing": _deserialize_showing(ticket.showing),
+        "tariff": ticket.tariff,
+        "price_cents": ticket.price_cents,
+    }
+    if include_owner:
+        payload["user_id"] = ticket.user_id
+    return payload
+
+
 @jwt_required()
 def getAll():
     identity = get_jwt_identity()
@@ -62,24 +75,19 @@ def getAll():
 
             tickets = session.execute(select(Ticket)).scalars().all()
             reservations = [
-                {
-                    "uuid": ticket.uuid,
-                    "user_id": ticket.user_id,
-                    "showing": _deserialize_showing(ticket.showing),
-                }
-                for ticket in tickets
+                _ticket_payload(ticket, include_owner=True) for ticket in tickets
             ]
             return send(200, {"tickets": reservations})
 
-        showings = session.scalars(
-            select(Ticket.showing).where(Ticket.user_id == identity)
+        tickets = session.scalars(
+            select(Ticket).where(Ticket.user_id == identity)
         ).all()
-        showings = [_deserialize_showing(showing) for showing in showings]
+        reservations = [_ticket_payload(ticket) for ticket in tickets]
 
-    if not showings:
+    if not reservations:
         return abort(404, "No tickets were found.")
 
-    return send(200, {"showings": showings})
+    return send(200, {"tickets": reservations})
 
 
 @jwt_required()
@@ -94,7 +102,7 @@ def getOne(id: str):
     if ticket is None:
         return abort(404, f"The specified ticket was not found ({id}).")
 
-    return send(200, {"showing": _deserialize_showing(ticket.showing)})
+    return send(200, {"ticket": _ticket_payload(ticket)})
 
 
 @jwt_required()
@@ -107,16 +115,30 @@ def create():
     if not isinstance(showing, (dict, str)):
         return abort(400, "Invalid value: showing")
 
-    ticket = Ticket(
-        uuid=uuid(),
-        showing=_serialize_showing(showing),
-        user_id=identity,
-    )
-    ticket_uuid = ticket.uuid
     with get_session() as session:
+        user = session.get(User, identity)
+        if user is None:
+            return abort(404, "User not found.")
+        tariff = get_tariff(user.tariff)
+        ticket = Ticket(
+            uuid=uuid(),
+            showing=_serialize_showing(showing),
+            user_id=identity,
+            tariff=tariff.code,
+            price_cents=tariff.price_cents,
+        )
+        ticket_uuid = ticket.uuid
         session.add(ticket)
 
-    return send(201, {"message": "Ticket successfully created.", "uuid": ticket_uuid})
+    return send(
+        201,
+        {
+            "message": "Ticket successfully created.",
+            "uuid": ticket_uuid,
+            "tariff": tariff.code,
+            "price_cents": tariff.price_cents,
+        },
+    )
 
 
 @jwt_required()

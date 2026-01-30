@@ -13,24 +13,26 @@ Base locale par défaut : `http://localhost:5002`.
 
 > Les routes protégées utilisent des JWT issus du login. Ajoute `Authorization: Bearer <token>` pour les accès qui l’exigent.
 
-- `POST /v1/user/` — crée un compte avec les champs JSON requis `lastname`, `firstname`, `age`, `email`, `password`. Optionnellement, ajoute `role` (`user` ou `admin`).
-- `GET /v1/user/` — nécessite un access token d’administrateur ; retourne `users` avec la liste complète (incluant `uuid`, champs déchiffrés et rôles).
+- `POST /v1/user/` — crée un compte avec les champs JSON requis `lastname`, `firstname`, `age`, `email`, `password`. Optionnellement, ajoute `role` (`user` ou `admin`) et `tariff` (`standard`, `student`, `under16`, `unemployed`).
+- `GET /v1/user/` — nécessite un access token d’administrateur ; retourne `users` avec la liste complète (incluant `uuid`, champs déchiffrés, `role` et `tariff`).
 - `POST /v1/user/login` — authentifie un utilisateur (`email`, `password`) et renvoie `token.access` (valide 6 h) + `token.refresh` (valide 7 j).
 - `GET /v1/user/refresh` — nécessite un refresh token (`@jwt_required(refresh=True)`); retourne un nouvel access token non fresh.
-- `GET /v1/user/me` — nécessite un access token fresh ou non; fournit `lastname`, `firstname`, `age`, `email`, `role` décryptés de l’utilisateur courant.
-- `PUT /v1/user/<id>` / `PATCH /v1/user/<id>` — exigent un access token; mettent à jour l’utilisateur authentifié avec les champs fournis (tous optionnels mais au moins un requis), y compris `role` (`user` ou `admin`). Le paramètre `<id>` provient du builder Flask mais n’est pas utilisé par le handler, donc toute valeur fonctionne tant qu’un JWT valide est fourni.
+- `GET /v1/user/me` — nécessite un access token fresh ou non; fournit `lastname`, `firstname`, `age`, `email`, `role`, `tariff` décryptés de l’utilisateur courant.
+- `PUT /v1/user/<id>` / `PATCH /v1/user/<id>` — exigent un access token; mettent à jour l’utilisateur authentifié avec les champs fournis (tous optionnels mais au moins un requis), y compris `role` (`user` ou `admin`) et `tariff`.
 - `DELETE /v1/user/` et `DELETE /v1/user/<id>` — suppriment le compte courant. Là encore, l’argument `<id>` n’est pas consommé, mais l’endpoint existe en double via le builder pour supporter la suppression globale ou ciblée.
 
 ## Tickets (`/v1/ticket`)
 
 > Toutes les routes ticket nécessitent un JWT d’accès.
 
-- `GET /v1/ticket/` — retourne la liste `showings` de tous les tickets appartenant à l’utilisateur (404 si aucun ticket).
-- `GET /v1/ticket/<id>` — retourne `showing` pour le ticket identifié par `<id>` si et seulement s’il appartient à l’utilisateur connecté.
-- `GET /v1/ticket/?scope=all` — nécessite un access token d’administrateur ; renvoie `tickets` avec chaque réservation (`uuid`, `user_id`, `showing`).
-- `POST /v1/ticket/` — crée un ticket associé à l’utilisateur courant. Corps JSON requis: `showing`. La réponse 201 contient `uuid`.
+- `GET /v1/ticket/` — retourne la liste `tickets` (chaque élément contient `uuid`, `showing`, `tariff`, `price_cents`) appartenant à l’utilisateur (404 si aucun ticket).
+- `GET /v1/ticket/<id>` — retourne `ticket` (avec `uuid`, `showing`, `tariff`, `price_cents`) si et seulement s’il appartient à l’utilisateur connecté.
+- `GET /v1/ticket/?scope=all` — nécessite un access token d’administrateur ; renvoie `tickets` avec chaque réservation (`uuid`, `user_id`, `showing`, `tariff`, `price_cents`).
+- `POST /v1/ticket/` — crée un ticket associé à l’utilisateur courant. Corps JSON requis: `showing`. Le prix est calculé depuis le `tariff` de l’utilisateur et la réponse 201 contient `uuid`, `tariff`, `price_cents`.
 - `DELETE /v1/ticket/<id>` — supprime un ticket particulier et renvoie un message confirmant la suppression; 404 si l’UUID n’existe pas pour cet utilisateur.
 - `DELETE /v1/ticket/` — supprime l’ensemble des tickets de l’utilisateur connecté (texte de réponse mis automatiquement au pluriel).
+
+Tarifs supportés : `standard` (12.00 EUR), `student` (9.00 EUR), `under16` (7.00 EUR), `unemployed` (8.00 EUR). Les valeurs sont stockées permanent en centimes dans `price_cents`.
 
 ## Conseils de test rapides
 

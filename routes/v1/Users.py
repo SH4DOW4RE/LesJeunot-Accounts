@@ -17,6 +17,7 @@ from sqlalchemy import select
 from database import get_session
 from models import User
 from modules.Hasher import Hasher
+from modules.Tariffs import DEFAULT_TARIFF, get_tariff
 from modules.RESTful_Builder import Builder
 
 
@@ -87,6 +88,7 @@ def _format_user(user: User) -> dict[str, str | None]:
         "age": decrypt(user.age),
         "email": decrypt(user.email),
         "role": user.role,
+        "tariff": user.tariff,
     }
 
 
@@ -128,6 +130,7 @@ def create():
     email = request.json.get("email")
     password = request.json.get("password")
     role = request.json.get("role", "user")
+    tariff_value = request.json.get("tariff", DEFAULT_TARIFF)
 
     data = {
         "lastname": lastname,
@@ -142,6 +145,11 @@ def create():
 
     if role not in {"user", "admin"}:
         return abort(400, "Invalid role. Allowed values: 'user', 'admin'.")
+
+    try:
+        tariff = get_tariff(tariff_value)
+    except KeyError as exc:
+        return abort(400, str(exc))
 
     email_clean = email.strip()  # type: ignore[union-attr]
     email_hash = sha256(email_clean.lower().encode("utf-8")).hexdigest()
@@ -162,6 +170,7 @@ def create():
             email_hash=email_hash,
             password=HASHER.hash(password),  # type: ignore[arg-type]
             role=role,
+            tariff=tariff.code,
         )
         session.add(user)
 
@@ -178,6 +187,7 @@ def modify(_id: str | None = None):
     email = request.json.get("email")
     password = request.json.get("password")
     role = request.json.get("role")
+    tariff_value = request.json.get("tariff")
 
     updates: dict[str, str] = {}
     if lastname is not None:
@@ -198,6 +208,12 @@ def modify(_id: str | None = None):
         if role not in {"user", "admin"}:
             return abort(400, "Invalid role. Allowed values: 'user', 'admin'.")
         updates["role"] = role
+    if tariff_value is not None:
+        try:
+            tariff = get_tariff(tariff_value)
+        except KeyError as exc:
+            return abort(400, str(exc))
+        updates["tariff"] = tariff.code
 
     if not updates:
         return abort(400, "At least one field is required.")
