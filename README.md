@@ -1,18 +1,15 @@
 # LesJeunot-Accounts
 
-A Microservice School Project.
+Microservice comptes du projet Les Jeunot. Il gere les utilisateurs et leurs tickets.
 
-# Prerequisites
+## Prerequisites
 
-- [Python](https://www.python.org/downloads) >= 3.11
+- Python >= 3.11
+- MySQL disponible et configure
 
-# Installation
+## Installation
 
-### 1. Install Python for your Operating System
-
-Follow the instructions on the Python website or online.
-
-### 2. Clone the repo
+### 1. Cloner le repo
 
 ```bash
 # HTTPS
@@ -21,39 +18,28 @@ git clone https://github.com/SH4DOW4RE/LesJeunot-Accounts.git
 git clone git@github.com:SH4DOW4RE/LesJeunot-Accounts.git
 ```
 
-### 3. Create a Virtual Environment and activate it
+### 2. Creer un virtualenv et installer les dependances
 
 ```bash
 python3 -m venv .venv
-```
-
-```bash
-# Windows
-.venv\Scripts\activate.bat
-# Linux
-.venv/Scripts/activate
-```
-
-### 4. Install dependancies
-
-```bash
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 5. Create a `.env` file
+### 3. Creer un fichier .env
 
-```
+```bash
 # Host IP and Port to listen on
-HOST=0.0.0.0
-PORT=8080
+HOST=127.0.0.1
+PORT=5000
 
 # Flask secrets (defaults are randomly generated at boot if omitted)
 # SECRET_KEY=<random hex string>
 # JWT_SECRET_KEY=<random hex string>
-# JWT_ISSUER=lesjeunot.accounts
+# JWT_ISSUER=
 
 # Comma-separated list of allowed origins (default: "*")
-CORS_ORIGINS=http://localhost:8080
+CORS_ORIGINS=*
 
 # Encryption key for the users' data (Required)
 KEY=<32 bytes encoded in base64>
@@ -66,357 +52,145 @@ DB_USER=lesjeunot
 DB_PASSWORD=<strong password>
 ```
 
-### 6. Start the service in development mode
-
-> [!NOTE]
-> A running MySQL instance matching the environment variables above is required.
+### 4. Lancer le service
 
 ```bash
 python3 main.py
 ```
 
-*Production mode coming soon™*
+## Docker
 
-### 7. Profit ?
+```bash
+docker build -t microservice-comptes .
 
-# Routes
+docker run --rm -p 8080:8080 \
+  -e HOST=0.0.0.0 \
+  -e PORT=8080 \
+  -e DB_NAME=lesjeunot \
+  -e DB_USER=lesjeunot \
+  -e DB_PASSWORD=secret \
+  -e DB_HOST=host.docker.internal \
+  -e DB_PORT=3306 \
+  -e KEY=<32 bytes encoded in base64> \
+  microservice-comptes
+```
 
-Example baseURL: `http://localhost:8080`
+## Architecture rapide
 
-> [!NOTE]
-> A newly created JWT access token (`/login`) is considered fresh.<br>
-> A JWT refresh token (`/refresh`) is no longer considered fresh.
+- Flask + Flask-JWT-Extended
+- SQLAlchemy (MySQL via PyMySQL)
+- Donnees sensibles chiffre es avec Fernet
+- Mot de passe hache via Argon2
 
-> [!NOTE]
-> Required field: `<data>`<br>
-> Optional field: `[data]`
+## API
 
-> [!NOTE]
-> Keep in mind that any errors not shown as an example are unexpected errors.<br>
-> Usually shown as a 500 error.
+Base URL par defaut: `http://127.0.0.1:5000` (variable via `HOST`/`PORT`).
+
+Toutes les reponses suivent le format:
+
+```json
+{ "status": 200, "data": { ... } }
+```
+
+Erreurs generiques:
+- 401: `Authorization token required.`
+- 404: `The requested URL was not found.`
 
 ### Index
 
-`GET /` Ping the server to see if it's online.
-<br>
-Example 200 response:
-```json
-{
-    "status": 200
-}    
-```
----
-`GET /versions` Lists available versions.
-<br>
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "versions": [
-            "v1"
-        ]
-    }
-}    
-```
----
-### Users
+`GET /` Ping basique.
 
-`POST /<version>/user` Creates a user (register a user).
-<br>
-Body:
-```json
-{
-    "lastname": "<lastname>",
-    "firstname": "<firstname>",
-    "age": "<age>",
-    "email": "<email>",
-    "password": "<password>"
-}
-```
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "message": "User successfully created."
-    }
-}
-```
-Example 400 response:
-```json
-{
-    "status": 400,
-    "error": "Bad Request",
-    "message": "Missing value(s): [<list of missing values>]"
-}
-```
----
-`GET /<version>/user` Get all users (admin only).
-<br>
-**Authorization header required** `Authorization: Bearer <access token>`
-<br>
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "users": [
-            {
-                "uuid": "<uuid>",
-                "lastname": "<lastname>",
-                "firstname": "<firstname>",
-                "age": "<age>",
-                "email": "<email>",
-                "role": "<role>"
-            }
-        ]
-    }
-}
-```
-Example 403 response:
-```json
-{
-    "status": 403,
-    "error": "Forbidden",
-    "message": "Admin role required."
-}
-```
----
-`POST /<version>/user/login` Log in a User.
-<br>
-Body:
-```json
-{
-    "email": "<email>",
-    "password": "<password>",
-}
-```
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "message": "User successfully logged in.",
-        "token": {
-            "access": "<JWT access token (valid for 6 hours)>",
-            "refresh": "<JWT refresh token (valid for 7 days)>",
-        }
-    }
-}    
-```
-Example 400 response:
-```json
-{
-    "status": 400,
-    "error": "Bad Request",
-    "message": "Missing value(s): [<list of missing values>]"
-}
-```
-Example 401 response:
-```json
-{
-    "status": 401,
-    "error": "Unauthorized",
-    "message": "Email or Password invalid."
-}
-```
----
-`GET /<version>/user/refresh` Gives a new Access Token from a Refresh Token.
-<br>
-**Authorization header required** `Authorization: Bearer <refresh token>`
-<br>
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "token": {
-            "access": "<JWT access token (valid for 6 hours)>"
-        }
-    }
-}    
-```
----
-`GET /<version>/user/me` Get the logged in User's details.
-<br>
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "lastname": "<lastname>",
-        "firstname": "<firstname>",
-        "age": "<age>",
-        "email": "<email>",
-        "role": ""
-    }
-}    
-```
----
-`PUT /<version>/user/modify` Modify all of the User's details.
-<br>
-Body:
-```json
-{
-    "lastname": "<lastname>",
-    "firstname": "<firstname>",
-    "age": "<age>",
-    "email": "<email>",
-    "password": "<password>"
-}
-```
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "message": "User successfully modified."
-    }
-}
-```
-Example 400 response:
-```json
-{
-    "status": 400,
-    "error": "Bad Request",
-    "message": "Use PATCH for partial modification of user data."
-}
-```
----
-`PATCH /<version>/user/modify` Modify some values of the User's details.
-<br>
-*All fields are optional, but at least one is required.*
-<br>
-Body:
-```json
-{
-    "lastname": "[lastname]",
-    "firstname": "[firstname]",
-    "age": "[age]",
-    "email": "[email]",
-    "password": "[password]"
-}
-```
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "message": "User successfully modified."
-    }
-}
-```
-Example 400 response:
-```json
-{
-    "status": 400,
-    "error": "Bad Request",
-    "message": "At least one field is required."
-}
-```
----
-`GET /<version>/user/delete` Delete the current User (logged in user).
-<br>
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "message": "User successfully deleted."
-    }
-}
-```
----
-### Tickets
+`GET /versions` Liste les versions disponibles (ex. `v1`).
 
-`GET /<version>/ticket` Get all the User's tickets.
-<br>
-Example 200 response:
+### Users (`/v1/user`)
+
+`POST /v1/user/` Cree un utilisateur.
+
+Corps:
 ```json
 {
-    "status": 200,
-    "data": {
-        "showings": [<list of string of the showing values>]
-    }
+  "lastname": "Doe",
+  "firstname": "Jane",
+  "age": 22,
+  "email": "jane.doe@example.com",
+  "password": "secret"
 }
 ```
----
-`GET /<version>/ticket?scope=all` Get every ticket (admin only).
-<br>
-**Authorization header required** `Authorization: Bearer <access token>`
-<br>
-Example 200 response:
+
+Reponse 201:
 ```json
 {
-    "status": 200,
-    "data": {
-        "tickets": [
-            {
-                "uuid": "<ticket uuid>",
-                "user_id": "<owner uuid>",
-                "showing": "<showing value or JSON>"
-            }
-        ]
-    }
+  "status": 201,
+  "data": { "message": "User successfully created." }
 }
 ```
-Example 403 response:
+
+`POST /v1/user/login` Authentifie un utilisateur.
+
+Corps:
+```json
+{ "email": "jane.doe@example.com", "password": "secret" }
+```
+
+Reponse 200:
 ```json
 {
-    "status": 403,
-    "error": "Forbidden",
-    "message": "Admin role required."
+  "status": 200,
+  "data": {
+    "message": "User successfully logged in.",
+    "token": { "access": "<token>", "refresh": "<token>" }
+  }
 }
 ```
----
-`GET /<version>/ticket/<ticket uuid>` Get a User's specific ticket.
-<br>
-Example 200 response:
+
+`GET /v1/user/refresh` Retourne un nouvel access token (JWT refresh requis).
+
+`GET /v1/user/me` Retourne le profil de l'utilisateur courant (JWT requis).
+
+Note: `PUT/PATCH /v1/user/<id>` et `DELETE /v1/user/` sont enregistres par le builder, mais les handlers `modify` et `delete` ne prennent pas de parametre `id`. En l'etat, ces routes renvoient une erreur serveur (TypeError).
+
+### Tickets (`/v1/ticket`)
+
+Toutes les routes tickets exigent un JWT d'acces.
+
+`GET /v1/ticket/` Liste les tickets de l'utilisateur.
+
+Reponse 200:
 ```json
-{
-    "status": 200,
-    "data": {
-        "showings": "<showing value>"
-    }
-}
+{ "status": 200, "data": { "showings": ["<showing>"] } }
 ```
----
-`POST /<version>/ticket` Creates a ticket.
-<br>
-Body:
+
+`GET /v1/ticket/<id>` Retourne le `showing` d'un ticket appartenant a l'utilisateur.
+
+`POST /v1/ticket/` Cree un ticket.
+
+Corps:
 ```json
-{
-    "showing": "<showing value>"
-}
+{ "showing": "showing-id-or-label" }
 ```
-Example 200 response:
+
+Reponse 201:
 ```json
-{
-    "status": 200,
-    "data": {
-        "message": "Ticket successfully created.",
-        "uuid": "<ticket's uuid>"
-    }
-}
+{ "status": 201, "data": { "message": "Ticket successfully created.", "uuid": "<uuid>" } }
 ```
-Example 400 response:
-```json
-{
-    "status": 400,
-    "error": "Bad Request",
-    "message": "Missing value: showing"
-}
-```
----
-`GET /<version>/ticket/delete/[id]` Delete a specified ticket, or all tickets if not speficied.
-<br>
-Example 200 response:
-```json
-{
-    "status": 200,
-    "data": {
-        "message": "Ticket successfully deleted."
-    }
-}
-```
+
+`DELETE /v1/ticket/` Supprime tous les tickets de l'utilisateur.
+
+`DELETE /v1/ticket/<id>` Supprime un ticket specifique.
+
+## Modele de donnees
+
+User (table `users`)
+- uuid: string (32)
+- lastname: text (chiffre)
+- firstname: text (chiffre)
+- age: text (chiffre)
+- email: text (chiffre)
+- email_hash: string (64, unique)
+- password: text (argon2)
+- role: string (admin/user)
+
+Ticket (table `tickets`)
+- uuid: string (32)
+- showing: text
+- user_id: string (ref `users.uuid`)
